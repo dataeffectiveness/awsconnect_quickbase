@@ -146,6 +146,7 @@ function showCallerInfo(callerNumber) {
         var crecid = cD.data[0][0];
         htmltxt = "Saving contact id for record " + crecid + "....";
         htmltxt += "<br>Contact ID: " + contID;
+        var updateconnidurl = "&a=API_EditRecord&_fid_73="+contID+"&rid=";
         htmltxt += "<br>" + qbdom+ qbdbid + updateconnidurl + crecid
         $("#msgDiv").html(htmltxt);
         //if the customer was found, then update the customer record with the latest awsconnectid
@@ -184,7 +185,7 @@ function showCallerInfo(callerNumber) {
            $.get( uuurl, function( data ) {
               $xml = $( data );
               errtext= $xml.find('qdbapi').find('errtext').text();
-              $("#msgDiv").html('request customer saved, error: ' + errtext);
+              logInfoMsg('request customer saved, error: ' + errtext);
             });
         }) // $.get( qbdom+ qbdbid + updateconnidurl
      } // if (cD.numrows
