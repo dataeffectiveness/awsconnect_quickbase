@@ -1,4 +1,4 @@
-<html>
+                                                                             <html>
 <head>
 <title> AWS Demo Callcenter </title>
 <style>
@@ -11,9 +11,8 @@ body {
 <script src="bpkqwm53t?a=dbpage&pageID=7"></script><!-- utility.js -->
 <script src="bpkqwm53t?a=dbpage&pageID=4"></script> <!-- amazon-connect-v1.2.0.js -->
 <script type="text/javascript">
- //replace with the CCP URL for your Amazon Connect instance 
+ //replace with the CCP URL for your Amazon Connect instance
 var ccpUrl = "https://dataeff.awsapps.com/connect/ccp#/";
-//var ccpUrl = "https://dfhv.awsapps.com/connect/ccp#/"; 
 const qbdom = 'https://octo.quickbase.com/db/';
 var apptoken = "apptoken=dvj9fdgugw422bvsq7i5dskfeei";
 var intervalSpeed = 2000;
@@ -21,10 +20,11 @@ var requesttype = "unknown";
 var queuename = "no queue set";
 var contID = "";
 var test = "no";
-var dbid_requests = "bpkqwm6b4"; 
+var dbid_requests = "bpkqwm6b4";
 var dbid_customer = "bpkqwm54y";
+var debuglog = "no";
 
-
+// once page is loaded, initialize softphone, display user information, and register event handlers
 $( document ).ready(function() {
    connect.core.initCCP(containerDiv, {
      ccpUrl: ccpUrl,
@@ -33,103 +33,110 @@ $( document ).ready(function() {
         allowFramedSoftphone: true
      }
    });
-  initInfo(); 
+  initInfo();
   connect.contact(subscribeToContactEvents);
   connect.agent(subscribeToAgentEvents);
+  //hack to test if user is logged into AWS connect
   connect.core.getEventBus().subscribe(connect.EventType.ACK_TIMEOUT, function() {
     var htmltxt = "<h3>Step 2 - You must <a href='https://dataeff.awsapps.com/connect/login?landat=%2Fconnect%2Fccp#/' target='_awsloginwin'>LOGIN</a> to AWS connect to ensure that calls get routed to you.<h3>";
     htmltxt += "  Once you have done that, close that AWS login window that opened then come back and reload this page."
-   // agent.getName() 
+   // agent.getName()
     $("#AWSuserDiv").html(htmltxt);
-  });     
-       
+  });
+
 });
 
-
+//display currently logged in user information or login link
 function initInfo() {
   $("#msgDiv").html("Loading...");
   var geturl = qbdom + "main?a=API_GetUserInfo";
-  $.get( geturl, function( data ) { 
-     var htmltxt = "ERROR";
+  var htmltxt = "ERROR";
+  $.get( geturl, function( data ) {
      var $xml = $( data );
      var userLg = $xml.find('qdbapi').find('user').find('login').text();
-   //alert("login " + userLg);
+     //display currently logged in Quickbase user information or login prompt if not logged in
      if (userLg != "Anonymous") {
        var userFn = $xml.find('user').find('firstName');
        var userLn = $xml.find('user').find('lastName');
        var userEm = $xml.find('user').find('email');
        htmltxt = "Current Quickbase User logged in: " + userFn.text() + " " + userLn.text()  ;
      } else {
-       htmltxt = "<h3>Step 1 - You must <a href='" + qbdom + "' target='custwindow'>LOGIN</a> to Quickbase to ensure that the AWS connect id is saved as calls come in.</h3>";  
+       htmltxt = "<h3>Step 1 - You must <a href='" + qbdom + "' target='custwindow'>LOGIN</a> to Quickbase to ensure that the AWS connect id is saved as calls come in.</h3>";
        htmltxt += "Once you have done that, close that quickbase login window that opened then come back and reload this page."
      }
      $("#QBuserDiv").html(htmltxt);
-     htmltxt = "<h3>Please use the links above to login to both Quickbase (to ensure requests are saved) and to AWS Connect (to ensure that calls get routed to you).</h3>";
      $("#msgDiv").html("Initializing...");
   })
 }
 
-    function subscribeToContactEvents(contact) {
-        logInfoMsg("Subscribing to events for contact");
-        if (contact.getActiveInitialConnection() && contact.getActiveInitialConnection().getEndpoint()) {
-            logInfoMsg("Brand New contact is from " + contact.getActiveInitialConnection().getEndpoint().phoneNumber);                       
-            
-            $("#msgDiv").html("New call coming in...");
-            var conattrb = contact.getAttributes();
-      //    alert("Contact attributes are " + JSON.stringify(contact.getAttributes()));
-            requesttype = conattrb.requesttype.value;
-            queuename = contact.getQueue().name;
-            var callerNum = contact.getActiveInitialConnection().getEndpoint().phoneNumber;
-            contID = contact.getContactId();
-            callerNum = callerNum.replace("+1","");
-            showCallerInfo(callerNum); 
-        } else {
-            logInfoMsg("This is an existing contact for this agent");
-        }
-        logInfoMsg("Contact is from queue " + queuename);
-        logInfoMsg("Contact requesttype is " + requesttype);
-        logInfoMsg("Contact attributes are " + JSON.stringify(contact.getAttributes()));
-        contact.onIncoming(handleContactIncoming);
-        contact.onAccepted(handleContactAccepted);
-        contact.onConnected(handleContactConnected);
-        contact.onEnded(handleContactEnded);
+//event handleer function that will be called when a new call comes in.
+function subscribeToContactEvents(contact) {
+    logInfoMsg("Subscribing to events for contact");
+    //get the initial connection and the object that will give us the call attributes (getEndPoint)
+    //if the caller hung up quickly, then these will be null
+    if (contact.getActiveInitialConnection() && contact.getActiveInitialConnection().getEndpoint()) {
+        logInfoMsg("Brand New contact is from " + contact.getActiveInitialConnection().getEndpoint().phoneNumber);
+
+        $("#msgDiv").html("New call coming in...");
+        var conattrb = contact.getAttributes();
+  //    alert("Contact attributes are " + JSON.stringify(contact.getAttributes()));
+        requesttype = conattrb.requesttype.value;
+        queuename = contact.getQueue().name;
+        var callerNum = contact.getActiveInitialConnection().getEndpoint().phoneNumber;
+        contID = contact.getContactId();
+        callerNum = callerNum.replace("+1","");
+        showCallerInfo(callerNum);
+    } else {
+        logInfoMsg("This is an existing contact for this agent");
     }
+    logInfoMsg("Contact is from queue " + queuename);
+    logInfoMsg("Contact requesttype is " + requesttype);
+    logInfoMsg("Contact attributes are " + JSON.stringify(contact.getAttributes()));
+    contact.onIncoming(handleContactIncoming);
+    contact.onAccepted(handleContactAccepted);
+    contact.onConnected(handleContactConnected);
+    contact.onEnded(handleContactEnded);
+}
 
-var debuglog = "no";
-
-function showCallerInfo(callerNumber) {    
+//saves the request and looks up the phone number to find the customer who is calling
+//the request save should really be moved into a different function so that this can
+//be called when the agent wants to look up a customer by typing in a phone number
+function showCallerInfo(callerNumber) {
 //  alert("showCallerInfo number is " + callerNumber + " rt " + requesttype + " cid " + contID + ", queue " + queuename);
 // First save the call information in the requests table by creating a "csv" payload and calling API_ImportFromCSV on that table
+// save the request first in case the customer can't be found or something goes awry
   var dt = new Date();
   var timestmpDate = dt.toString();
-  var reqnotes = "Timestamp: " + timestmpDate + ",  Caller number is " + callerNumber + ", rt " + requesttype + ",  cid " + contID + ", queue " + queuename; 
+  var reqnotes = "Timestamp: " + timestmpDate + ",  Caller number is " + callerNumber + ", rt " + requesttype + ",  cid " + contID + ", queue " + queuename;
 
   var dataload = "AWS call connect id, Request Type, Incoming Phone Number, Notes\n";
   dataload += contID + ',' + requesttype + ',' + callerNumber  + ', "' + reqnotes + '"\n';
   logInfoMsg("dataload is ********<br>" + dataload + "<br>*******end dataload");
-  var clist = "36.8.92.88.23";
-  var reqresp =  post_csv(dataload, clist, dbid_requests, "dvj9fdgugw422bvsq7i5dskfeei"); //save request and get result 
+  var clist = "36.8.92.23";
+  var reqresp =  post_csv(dataload, clist, dbid_requests, "dvj9fdgugw422bvsq7i5dskfeei"); //save request and get result
   logInfoMsg("saving request response is: <br> " + reqresp + "<br>end response");
+
+  //now look for the customer by searching for the phone number
   $("#msgDiv").html("Searching for " + requesttype + " customer with phone number " + callerNumber);
-  
-
-  var qbdbid = dbid_customer;    
+  var qbdbid = dbid_customer;
+  //note the "qid" here.  This is a regular Quickbase report created to search for a phone number entered as an "ask the user" parameter
+  //instead of calling the report with "a=q" like normal, the same report is called with "a=API_GenResultsTable" with extra parameter "jsa=1"
+  //to return the same data in 4 javascript arrays that we then stick into our custom JSAresult object to access later
+  //see the utility.js file for that object definition
+  //the qid for your report will likely be different
   var queryurl = "&a=API_GenResultsTable&qid=6&jsa=1&nv=1&v0=" + callerNumber;
-  var updateconnidurl = "&a=API_EditRecord&_fid_73="+contID+"&rid=";
-
   $("#msgDiv").html("Searching for caller...");
   $("#msgDiv").append("<br>"+ qbdom+ qbdbid  + "?" + apptoken + queryurl + callerNumber);
-   logInfoMsg("qb string = <br>\n" + qbdom + qbdbid + "?" + apptoken + queryurl);
-  $.get( qbdom+ qbdbid + "?" + apptoken + queryurl, function( data ) {  
+  logInfoMsg("qb string = <br>\n" + qbdom + qbdbid + "?" + apptoken + queryurl);
+  $.get( qbdom+ qbdbid + "?" + apptoken + queryurl, function( data ) {
       var htmltxt = "Request Type is " + requesttype + "<a href='"+  + qbdbid + queryurl + "' target='custwindow'>caller link</a>";
-      var cD = new JSAresult(data); 
-      if (cD.numrows == 0) {
+      var cD = new JSAresult(data);
+      if (cD.numrows == 0) {  //caller number not found
         htmltxt = "No customer found, please use the box below to search for the correct customer.";
         htmltxt += "<br><h4> AWS Connect ID for this call: " + contID + "</h4>";
         $("#msgDiv").html(htmltxt);
         $("#ReqDiv").html("Request type is " + requesttype);
-
-      } else {
+      } else {  //caller number found
         var cfname = cD.data[0][1];
         var clname = cD.data[0][2];
         var custid = cD.data[0][3];
@@ -141,62 +148,76 @@ function showCallerInfo(callerNumber) {
         htmltxt += "<br>Contact ID: " + contID;
         htmltxt += "<br>" + qbdom+ qbdbid + updateconnidurl + crecid
         $("#msgDiv").html(htmltxt);
-        $.get( qbdom+ qbdbid + "?" + apptoken + updateconnidurl + crecid, function( data ) {  
+        //if the customer was found, then update the customer record with the latest awsconnectid
+        //doing this more to as a debug thing but it could also be used to display the latest
+        //call information at the customer level with a reverse relationship
+        $.get( qbdom+ qbdbid + "?" + apptoken + updateconnidurl + crecid, function( data ) {
            var $xml = $( data );
            var errtext= $xml.find('qdbapi').find('errtext').text();
            var num_fields_changed = $xml.find('qdbapi').find('num_fields_changed').text();
- 
+
            htmltxt = "Request Type " + requesttype + ", customer found: ";
            htmltxt += "<table border=0><tr><td>Name</td>";
+           htmltxt += "<td>Customer Number " + crecid +"</td></tr>";
            htmltxt += "<td><a href='" + qbdom + qbdbid + "?a=dr&dfid=10&rid=" + crecid +"' target='custwindow'>"+ cfname+ " " + clname + "</a></td></tr>";
            htmltxt += "<tr><td>customer id:</td><td> " + custid + "</td></tr>";;
            htmltxt += "<tr><td>phone:</td><td>  " + cphone1;
            htmltxt += "</td></tr>";
            htmltxt += "<tr><td>email:</td><td> " + cemail + "</td></tr>";
-           var lnk = qbdom + dbid_requests +"?a=API_GenAddRecordForm&_fid_36="+contID+"&_fid_26="+custid+"&_fid_8="+requesttype;      
-           lnk =  qbdom + qbdbid + "?a=dr&dfid=10&rid=" + crecid;           
+           var lnk = qbdom + dbid_requests +"?a=API_GenAddRecordForm&_fid_36="+contID+"&_fid_26="+custid+"&_fid_8="+requesttype;
+           lnk =  qbdom + qbdbid + "?a=dr&dfid=10&rid=" + crecid;
            htmltxt += "<tr><td colspan=2><button id='checkreq' onclick=\"window.open('"+lnk+"','custwindow')\"> Check Existing Requests</button></td></tr>";
            htmltxt += "</table>";
            htmltxt += "<br><br>If this is not the correct customer information, please <a href='javascript:$(\"#searchDiv\').show();return false;'>click here</a> to search for the correct customer.";
            htmltxt += "<br><h4> AWS Connect ID for this call: " + contID + "</h4>";
            if (errtext != "No error") {
              htmltxt += "<br>Error " + errtext;
-           } else {             
+           } else {
              htmltxt += "<br>Error " + errtext;
-           }            
+           }
+
+           //now that we know the customer, update the request with this customers id to tie them together
+           var updatereqcust = "&a=API_EditRecord&_fid_26="+custid+"&key=" + contID;
+           var uuurl =  qbdom +  dbid_requests + "?" + apptoken + updatereqcust;
+           htmltxt += "<br>" + uuurl;
            $("#msgDiv").html(htmltxt);
+           $.get( uuurl, function( data ) {
+              $xml = $( data );
+              errtext= $xml.find('qdbapi').find('errtext').text();
+              $("#msgDiv").html('request customer saved, error: ' + errtext);
+            });
         }) // $.get( qbdom+ qbdbid + updateconnidurl
      } // if (cD.numrows
   }); // $.get( qbdom+ qbdbid + getcusturl
 } // function showCallerInfo
-  
-    function subscribeToAgentEvents(agent) {
-        logInfoMsg("Subscribing to events for agent " + agent.getName());        
-        var config = agent.getConfiguration();
-        htmltxt = "<br>AWS Connect agent logged in: " + agent.getName() + " - " + config.username + "<br>";
-        $("#AWSuserDiv").html(htmltxt);
-        $("#msgDiv").html("Initialized...waiting for calls." + htmltxt);      
-        logInfoMsg("Agent " + agent.getName() + " is currently in status of " + agent.getStatus().name);
-        agent.onRefresh(handleAgentRefresh);
-        agent.onRoutable(handleAgentRoutable);
-        agent.onNotRoutable(handleAgentNotRoutable2);
-        agent.onOffline(handleAgentOffline2);
-        agent.onAfterCallWork(handleAgentACW2)
-        agent.onError(handleAgentError2);
-    }
+
+function subscribeToAgentEvents(agent) {
+    logInfoMsg("Subscribing to events for agent " + agent.getName());
+    var config = agent.getConfiguration();
+    htmltxt = "<br>AWS Connect agent logged in: " + agent.getName() + " - " + config.username + "<br>";
+    $("#AWSuserDiv").html(htmltxt);
+    $("#msgDiv").html("Initialized...waiting for calls." + htmltxt);
+    logInfoMsg("Agent " + agent.getName() + " is currently in status of " + agent.getStatus().name);
+    agent.onRefresh(handleAgentRefresh);
+    agent.onRoutable(handleAgentRoutable);
+    agent.onNotRoutable(handleAgentNotRoutable2);
+    agent.onOffline(handleAgentOffline2);
+    agent.onAfterCallWork(handleAgentACW2)
+    agent.onError(handleAgentError2);
+}
 
 
 
 function searchbycustomer() {
-  //  $('#searchDiv').toggle(); 
+  //  $('#searchDiv').toggle();
   var sv = $("#custsearch").val();
-  
+
   var queryurl =  qbdom + dbdi_customer+ '?a=API_GenResultsTable&jsa=1&' + apptoken + '&qid=7&nv=1&v0=' + sv;
  // alert ("searcing for " + queryurl);
   $("#eventMsgs").append(queryurl);
-  $.get(queryurl , function( data ) {  
-      var htmltxt = "";      
-      var cD = new JSAresult(data); 
+  $.get(queryurl , function( data ) {
+      var htmltxt = "";
+      var cD = new JSAresult(data);
       if (cD.numrows == 0) {
     //    alert("not found");
         htmltxt = "No customer found for customer id "+custsearch + ", please confirm number.";
@@ -209,7 +230,7 @@ function searchbycustomer() {
         var custid = cD.data[0][3];
         var cphone1 = cD.data[0][4];
         cphone1 = cphone1.replace(/\D/g,'');
-        showCallerInfo(cphone1); 
+        showCallerInfo(cphone1);
      }
   });
 
@@ -230,10 +251,10 @@ function searchbycustomer() {
         <div id="containerDiv" style="width: 320px; min-width: 200px; height: 465px; min-height: 400px; ">
             <!--Amazon CCP will go here-->
         </div>
-      <div style="width: 550px; height: 465px; overflow: auto;">  
+      <div style="width: 550px; height: 465px; overflow: auto;">
         <div><h1>Caller Information</h1></div>
       <div id='msgDiv'></div><br>
-        
+
       </div>
        <div id="logMsgsContainer"><!-- style="visibility: hidden;"-->
             <h2>Log Messages</h2>
@@ -247,6 +268,6 @@ function searchbycustomer() {
                 <!-- events from Streams API will go here-->
             </div>
         </div>
-   </div>    
+   </div>
 </body>
 </html>
